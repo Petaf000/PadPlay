@@ -28,6 +28,10 @@ This repository is the **public support place** for PadPlay. It does **not** con
 
 Issues and Discussions are public. Do not post personal information, keys or passwords.
 
+### Documentation
+
+SDK documentation (English): https://petaf000.github.io/PadPlay/docs/ — Quick Start, Concepts, Debugging. The same pages ship inside the package (`Documentation~`).
+
 ### Privacy policy (PadPlay app)
 
 - English: https://petaf000.github.io/PadPlay/privacy/
@@ -58,6 +62,10 @@ Issues and Discussions are public. Do not post personal information, keys or pas
 4. **プライバシーのこと・公開の場に書きたくないこと**: petaf570@gmail.com
 
 Issue と Discussions はだれでも読めます。個人情報・鍵・パスワードは書かないでください。日本語でも英語でも大丈夫です。
+
+### 文書
+
+SDK の文書(英語): https://petaf000.github.io/PadPlay/docs/ (Quick Start・Concepts・Debugging)。日本語の用語集: https://petaf000.github.io/PadPlay/docs/Glossary-ja.html 。同じ文書はパッケージの中(`Documentation~`)にもあります。
 
 ### プライバシーポリシー(PadPlay アプリ)
 
