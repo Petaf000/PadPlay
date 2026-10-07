@@ -12,7 +12,7 @@ Tools for answering three questions without leaving the Unity Editor:
 
 | Tool | Where | Use it for |
 |---|---|---|
-| [Display preview](#1-display-preview-each-phones-screen-on-display-2-3) | Game view → *Display 2*, *Display 3*, … | Seeing each player's phone screen (video, fingers, buttons) next to the TV picture. |
+| [Display preview](#1-display-preview-each-phones-screen-on-display-2-3-) | Game view → *Display 2*, *Display 3*, … | Seeing each player's phone screen (video, fingers, buttons) next to the TV picture. |
 | [PadPlay Debugger](#2-padplay-debugger) | *Window → PadPlay → Debugger* | Connection state, round trip, input rates, button bits, gyro, touches, the event log; recenter, test haptics, disconnect. |
 | [Debug Overlay](#3-debug-overlay-in-built-games) | *Add Component → PadPlay → Debug Overlay* | A small status box in **built games** (F3 shows / hides it). |
 | [`host.Diagnostics`](#4-reading-the-same-data-from-code) | C# | The same numbers from your own code or tools. |
@@ -26,7 +26,7 @@ to open the Debugger and add the overlay.
 
 ---
 
-## 1. Display preview: each phone's screen on Display 2, 3, … {#1-display-preview-each-phones-screen-on-display-2-3}
+## 1. Display preview: each phone's screen on Display 2, 3, …
 
 While playing in the Editor, the host draws what each phone shows on its own display:
 **P1 → Display 2, P2 → Display 3**, and so on. Display 1 (your game) is never touched.

@@ -38,7 +38,7 @@ imports a sample with one click and links to these pages.
 | Show a picture on the phone | [Quick Start §9](QuickStart.md#9-second-screen-video) |
 | Put game-specific buttons on the phone, rumble it | [Quick Start §10](QuickStart.md#10-on-screen-buttons-and-haptics) |
 | Fix "cannot connect", "stuck connecting" (*Window → PadPlay → Connection Check*), wrong touches, black video | [Quick Start §11](QuickStart.md#11-troubleshooting), [Debugging §6](Debugging.md#6-which-tool-for-which-problem) |
-| See each phone's screen in the Editor | [Debugging §1](Debugging.md#1-display-preview-each-phones-screen-on-display-2-3) |
+| See each phone's screen in the Editor | [Debugging §1](Debugging.md#1-display-preview-each-phones-screen-on-display-2-3-) |
 | Inspect connection state, input rates, button bits, events | [Debugging §2](Debugging.md#2-padplay-debugger) |
 | Show a status box in a built game | [Debugging §3](Debugging.md#3-debug-overlay-in-built-games) |
 | Read the same diagnostics from code | [Debugging §4](Debugging.md#4-reading-the-same-data-from-code) |
