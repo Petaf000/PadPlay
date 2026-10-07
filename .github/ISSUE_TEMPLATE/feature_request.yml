@@ -1,0 +1,19 @@
+name: Feature request / 要望
+description: Suggest an idea or an improvement. / 機能やよくする案の提案。
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to make or do? / 何を作りたいか・何をしたいか
+      description: The game or situation, and what is missing today. / どんなゲーム・場面で、今は何が足りないか。
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea / 案
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you tried / 試した回避策

@@ -1,0 +1,21 @@
+name: Question / 質問
+description: Ask how to do something. / 使い方などの質問。
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the FAQ and Known issues first. Discussions are also a good place for questions.
+        先に FAQ と既知の問題をご覧ください。質問は Discussions でも受け付けています。
+  - type: textarea
+    id: question
+    attributes:
+      label: Question / 質問
+      description: What do you want to do, and what have you tried? / 何をしたいか・何を試したか。
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment (optional) / 環境(任意)
+      placeholder: "e.g. PadPlay SDK 0.2.0, Unity 6000.6, Windows 11, Pixel 8"

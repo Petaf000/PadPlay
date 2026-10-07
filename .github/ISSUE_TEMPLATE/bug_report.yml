@@ -1,0 +1,73 @@
+name: Bug report / 不具合の報告
+description: Something does not work as expected. / 期待どおりに動かない。
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. This page is public: do not paste personal information, keys or passwords.
+        報告ありがとうございます。このページはだれでも読めます。個人情報・鍵・パスワードは貼らないでください。日本語でも英語でも大丈夫です。
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened / 何が起きたか
+      description: What you did, what you expected, and what happened instead. / したこと・期待したこと・実際に起きたこと。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 再現の手順
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: input
+    id: sdk
+    attributes:
+      label: PadPlay SDK version / SDK の版
+      placeholder: "e.g. 0.2.0 (PadPlay SDK or PadPlay Lite)"
+  - type: input
+    id: unity
+    attributes:
+      label: Unity version / Unity の版
+      placeholder: "e.g. 6000.6.0f1"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: PC OS / PC の OS
+      placeholder: "e.g. Windows 11 24H2"
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU and graphics API / GPU とグラフィックス API
+      placeholder: "e.g. NVIDIA GeForce RTX 4070, Direct3D 12"
+  - type: input
+    id: phone
+    attributes:
+      label: Phone model and OS / スマホの機種と OS
+      placeholder: "e.g. Google Pixel 8, Android 15 / iPhone 15, iOS 18"
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: PadPlay app version / アプリの版
+      description: Shown in the app's "About and licenses" screen. / アプリの「このアプリについて・ライセンス」にあります。
+  - type: textarea
+    id: connection-check
+    attributes:
+      label: Connection Check result / 接続チェックの結果
+      description: |
+        If the problem is about connecting: in the Unity Editor open Window > PadPlay > Connection Check and paste the result. Remove anything you do not want to make public.
+        接続の問題なら: Unity エディタの Window > PadPlay > Connection Check の結果を貼ってください。公開したくない部分は消してください。
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console log or screenshots / Console のログ・スクリーンショット
+      description: Errors from the Unity Console, the Debugger, or screenshots. / Unity の Console・Debugger のエラー、スクリーンショット。

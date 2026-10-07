@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions (questions, ideas, show your game) / 質問・アイデア・作品の紹介
+    url: https://github.com/Petaf000/PadPlay/discussions
+    about: Ask and talk in public. / 公開の場で質問・相談できます。
+  - name: Privacy policy / プライバシーポリシー
+    url: https://petaf000.github.io/PadPlay/privacy/
+    about: How the PadPlay app handles information. / PadPlay アプリの情報の扱い。
