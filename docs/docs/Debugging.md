@@ -26,7 +26,7 @@ to open the Debugger and add the overlay.
 
 ---
 
-## 1. Display preview: each phone's screen on Display 2, 3, …
+## 1. Display preview: each phone's screen on Display 2, 3, … {#1-display-preview-each-phones-screen-on-display-2-3}
 
 While playing in the Editor, the host draws what each phone shows on its own display:
 **P1 → Display 2, P2 → Display 3**, and so on. Display 1 (your game) is never touched.
