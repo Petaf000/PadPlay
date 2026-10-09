@@ -5,7 +5,7 @@ lang: en
 
 # PadPlay SDK documentation
 
-PadPlay SDK turns a phone into a Wii U GamePad–style controller for a Unity game: touch screen, gyro,
+PadPlay SDK turns a phone into a second-screen controller for a Unity game: touch screen, gyro,
 on-screen buttons, rumble and a second screen. Start with the Quick Start; come back here to find a topic.
 
 In the Editor, *Window → PadPlay → Welcome* (it opens once by itself after you install the package) shows the first steps,
@@ -19,8 +19,9 @@ imports a sample with one click and links to these pages.
 | Page | Read it when |
 |---|---|
 | [Quick Start](QuickStart.md) | You set the SDK up for the first time. |
-| [Concepts](Concepts.md) | You want to know how it works: slots, tokens, channels, touch injection, attitude, layouts. |
+| [Concepts](Concepts.md) | You want to know how it works: slots, tokens, encryption, state and reliable messages, touch injection, attitude, layouts. |
 | [Debugging](Debugging.md) | Something does not arrive, or you want to see what each phone shows. |
+| [Pose Camera](PoseCamera.md) | You want to look around by pointing the phone: the PC renders for the phone's orientation and the phone corrects the remaining turn on screen. |
 | Changelog (`CHANGELOG.md` in the package) | You update the package or look for a renamed API. |
 | [用語集 / Glossary (Japanese)](Glossary-ja.md) | You use the editor in Japanese (*Preferences → PadPlay*) and want the English term. |
 
@@ -29,6 +30,8 @@ imports a sample with one click and links to these pages.
 | I want to… | Go to |
 |---|---|
 | Check what you need (phone app, same Wi-Fi, firewall) and the tested setup | [Quick Start §1](QuickStart.md#1-requirements) |
+| Know what it cannot do yet (macOS / Linux hosts send JPEG, no browser join) and what PadPlay Lite leaves out | [Quick Start §1](QuickStart.md#what-it-cannot-do-yet), [PadPlay Lite](QuickStart.md#padplay-lite) |
+| Understand the encryption, H.264 / JPEG and how video adapts to the Wi-Fi | [Concepts: Encryption](Concepts.md#encryption), [Second screen](Concepts.md#second-screen-video) |
 | Install the package | [Quick Start §2](QuickStart.md#2-install-the-package) |
 | Add the host in one click (*GameObject → PadPlay → PadPlay Setup*) and understand its Inspector (modules, players, connection) | [Quick Start §3](QuickStart.md#3-add-a-padplayhost) |
 | Show the QR code, react to players joining and leaving | [Quick Start §4](QuickStart.md#4-show-the-qr-code), [§5](QuickStart.md#5-connect-the-phone) |
@@ -43,7 +46,7 @@ imports a sample with one click and links to these pages.
 | Show a status box in a built game | [Debugging §3](Debugging.md#3-debug-overlay-in-built-games) |
 | Read the same diagnostics from code | [Debugging §4](Debugging.md#4-reading-the-same-data-from-code) |
 | Try the game without a phone (simulated phones in the Editor) | [Debugging §5](Debugging.md#5-trying-it-without-a-phone-virtual-phones) |
-| Try the samples (Treasure Map, Connect Demo, Gyro Window, Panel Dive) | [Quick Start §12](QuickStart.md#12-samples) |
+| Try the samples (Treasure Map, Floating Island, Connect Demo, Gyro Window, Panel Dive) | [Quick Start §12](QuickStart.md#12-samples) |
 
 ## Main types
 
@@ -62,7 +65,7 @@ imports a sample with one click and links to these pages.
 ## Phone app
 
 Players use the **PadPlay** app (Flutter, Android and iPhone). It is not in a store yet; build and install it from
-`client/` in the SDK repository (see `client/README.md` there). The iPhone version has been tried on one device only.
+`client/` in the SDK repository (see `client/README.md` there). The current iPhone build has not been tried on a device yet.
 
 ## Support
 

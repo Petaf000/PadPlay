@@ -26,15 +26,13 @@ receive touch, gamepad and gyro input → (optionally) stream a second screen, p
 | | |
 |---|---|
 | **Unity** | Unity 6 (`6000.0` or newer). Developed and tested on 6000.6 (Windows, Direct3D 12). |
-| **Packages** | Installed automatically as dependencies: Input System (`com.unity.inputsystem` 1.11.2+), uGUI (`com.unity.ugui`), WebRTC (`com.unity.webrtc` 3.0.0). |
+| **Packages** | Installed automatically as dependencies: Input System (`com.unity.inputsystem` 1.11.2+), uGUI (`com.unity.ugui`). Nothing else: the connection is the SDK's own *PadPlay Link* over UDP. |
 | **Active Input Handling** | *Project Settings → Player → Active Input Handling* = **Input System Package (New)** or **Both**. |
-| **PC (the host)** | Windows 10 / 11, in the Editor or a Windows standalone build. macOS and Linux hosts are not tested yet. |
-| **GPU** (second-screen video only) | **NVIDIA recommended.** Hardware H.264 encoding (NVENC) is used only on NVIDIA GPUs with Direct3D 11 / 12 or Vulkan (not OpenGL Core), driver 456.71+. AMD / Intel GPUs fall back to software encoding (performance not measured yet). Touch, gamepad and gyro do not need a GPU encoder. |
+| **PC (the host)** | Windows 10 / 11, in the Editor or a Windows x64 standalone build. macOS and Linux hosts are not tested yet (and send video as JPEG only, see below). |
+| **GPU** (second-screen video only) | H.264 is encoded by Windows Media Foundation (the GPU's hardware encoder when one works, otherwise Windows' software encoder) from Direct3D 11 / 12 without leaving the GPU; Vulkan reads the frame back first (slower). Where H.264 cannot be used (OpenGL, macOS / Linux, Windows without an H.264 encoder) the video is sent as JPEG. Touch, gamepad and gyro do not need a GPU encoder. |
+| **Render pipeline** | **Built-in** and **URP** (Universal Render Pipeline). The second-screen video works the same in both, with no setup. HDRP has not been tested yet. The samples' 3D materials are made for the Built-in pipeline: in a URP project, convert them once (see [Samples](#12-samples)). |
 | **Phone / tablet** | Android 7.0 or newer, or an iPhone with iOS 13 or newer, with a gyroscope, running the separate **PadPlay** app (see step 5). |
-| **Network** | PC and phone on the **same Wi-Fi / LAN**. Internet play is out of scope. |
-
-About `com.unity.webrtc`: on Unity 6000.4 and newer the Package Manager may label it *deprecated*.
-It still works on Windows in our tests; the SDK depends on it for both the data channels and the video.
+| **Network** | PC and phone on the **same Wi-Fi / LAN**. Everything uses one **UDP** port (7780 by default). Internet play is out of scope. |
 
 ### What you need besides Unity
 
@@ -50,9 +48,27 @@ It still works on Windows in our tests; the SDK depends on it for both the data 
 |---|---|
 | PC | Windows, NVIDIA GPU, Direct3D 12, Unity 6000.6 |
 | Android | Android 10, Samsung Galaxy S9+ (one device) |
-| iPhone | One iPhone (a sideloaded test build of the app) |
+| iPhone | Not yet on a device with this version: the current build (PadPlay Link) builds and passes its encryption test vectors in CI, but has not been tried on an iPhone. An earlier build of the app (before PadPlay Link) ran on one iPhone |
 
-Other GPUs (software video encoding), macOS / Linux hosts and other phones may work but have not been tested yet.
+Direct3D 11, Vulkan and OpenGL Core (JPEG) are covered by automated tests on the same PC, and so is the video in a URP project
+(URP 17.6 on Unity 6000.6). Other GPUs' hardware encoders,
+Windows' software encoder, macOS / Linux hosts and other phones may work but have not been tested yet.
+
+### What it cannot do (yet)
+
+| | |
+|---|---|
+| **macOS / Linux host** | No H.264 encoder there yet: the second screen is sent as JPEG (larger, slower). Not tested. |
+| **Joining from a web browser** | Not in this version: every player needs the PadPlay app. Planned as a free 1.x update. |
+| **Internet play** | Same LAN only (no relay server, no STUN / TURN). |
+| **HDRP** | Not tested yet. |
+
+### PadPlay Lite
+
+The free **PadPlay Lite** edition works exactly like the full version, with these limits: **1 player** (*Max Players* is capped at 1),
+**no second-screen video** (`PadPlayView` and the video encoder are not included; the *Video* module shows a note and does nothing),
+only the *Connect Demo* sample (without video), and no phone app source code. Sections of this page about video or several players
+apply to the full **PadPlay SDK** only.
 
 ---
 
@@ -73,7 +89,7 @@ or add it to `Packages/manifest.json`:
 "com.petaf.padplay": "file:../../path/to/packages/com.petaf.padplay"
 ```
 
-Unity resolves the dependencies (Input System, uGUI, WebRTC) on the next refresh.
+Unity resolves the dependencies (Input System, uGUI) on the next refresh.
 
 ---
 
@@ -102,10 +118,10 @@ That is all the setup the Host needs. With **Auto Start** on (default) it starts
 The Inspector is laid out top to bottom as **Players → Modules → Debug → Connection** (plus a status line while playing).
 Tick the modules your game uses; each checkbox opens the module's settings right below it.
 An unticked module is folded and greyed out, and its values are kept.
-Hover over any field for a short explanation (tooltips are in Japanese for now).
+Hover over any field for a short explanation.
 
 Most values can be changed **while playing** and take effect at once, so you can tune by feel.
-Fields read only when the host starts are greyed out during Play and marked 「Play 中は変えられない」 (cannot change while playing).
+Fields read only when the host starts are greyed out during Play and marked *(locked in Play mode)*.
 
 **Players** (`Settings.Players`)
 
@@ -118,7 +134,7 @@ Fields read only when the host starts are greyed out during Play and marked 「P
 | Create Devices | on | Create a `PadPlayPad` (Gamepad) per player in the Input System. | Next connection |
 
 **Modules** (`Settings.Modules`) — the *Preset* menu next to the header (also the Host's context menu) picks a common set:
-*Touch only*, *Gyro controller* (attitude + buttons) or *Wii U style* (everything). Presets change only the checkboxes.
+*Touch only*, *Gyro controller* (attitude + buttons) or *Second-screen controller* (everything). Presets change only the checkboxes.
 
 A disabled module is ignored by the host: its input is dropped (no uGUI events, no `TouchReceived` / `AttitudeReceived` /
 `ButtonsReceived`, nothing on the pad) and nothing is sent for it (no buttons, no haptics, no video).
@@ -142,10 +158,17 @@ A disabled module is ignored by the host: its input is dropped (no uGUI events, 
 | | Allow Haptics | on | Off = vibration is never sent (a running vibration stops). |
 | | Haptic Strength Scale | 1 | Multiplies every vibration strength. |
 | | Haptic Refresh / Duration / Min Change | 100 ms / 150 ms / 0.05 | How vibration is resent to the phone (rarely needs changing). |
-| **Video** (`Settings.Video`) | Separate Video Sizes | on | Works around a Unity WebRTC issue with several same-size NVENC streams. |
+| **Video** (`Settings.Video`) | Codec | Auto | *Auto* = H.264; JPEG for a phone that asks for it (its H.264 decoding is slow), and for everyone when this PC has no H.264 encoder. *H264* / *Jpeg* force one (a forced H264 still falls back to JPEG when this PC has no H.264 encoder). |
+| | Adaptive Video / Min Kbps / Priority / Min Fps / Min Scale | on / 300 / Quality / 30 / 0.5 | Lowers the bitrate, then the frame rate or the size, when the Wi-Fi gets worse, and raises them again slowly. *Quality* keeps the size (frame rate first); *Smoothness* keeps the frame rate (size first). |
+| | Total Max Kbps | 0 | Upper limit for all phones together; each phone gets at most this divided by the players (0 = none). |
+| | Jpeg Scale / Fps / Quality | 0.5 / 30 / 75 | The JPEG fallback: size as a fraction of the view's size, frame rate, starting quality (20–90; then it follows the bitrate). |
+| | Pacing Mbps / Max Playout Frames / Use Ltr Recovery | 20 / 2 / on | How fast a frame's pieces are sent (0 = all at once); the most frames a phone waits to smooth uneven arrival (0 = never; it waits only while the arrival is uneven); repair lost video with small recovery frames instead of key frames. **Read when the host starts.** |
+| | Prefer Readback | off | Copy each frame through the CPU even on Direct3D 11 / 12 (a workaround if the GPU path misbehaves; slower). |
 | | Views | | Every `PadPlayView` in the scene with its player, size, frame rate, bitrate limit and *Match Phone Aspect* (step 9). With none, *Create a camera and attach* adds one. |
 
-All module settings may change while playing. Turning **Video** on or off reconnects the affected players' video.
+Module settings may change while playing, except the three Video values marked above. Codec, Adaptive Video and the JPEG values
+apply when a player's video (re)starts. Turning **Video** on or off, or changing a View, restarts the affected players' video
+(from a key frame; the connection and the slot stay).
 
 **Debug** (folded) — the Display 2 / 3 preview of each phone (`Settings.Preview`), **Open Debugger** and
 **Add Debug Overlay**. See [Debugging](Debugging.md).
@@ -154,12 +177,10 @@ All module settings may change while playing. Turning **Video** on or off reconn
 
 | Field | Default | What it does | While playing |
 |---|---|---|---|
-| Port | 7780 | TCP port for the connection handshake. If busy, the next free port is used. | No |
+| Port | 7780 | UDP port for everything (join, input, video). If busy, the next free port is used and put in the QR. | No |
 | Game Name | *(product name)* | Shown on the phone. | No |
 | Host Addresses | *(automatic)* | IP addresses put in the QR. Set when the PC has several network adapters. | No |
 | Loopback Only | off | Listen on 127.0.0.1 only (tests). | No |
-| Run Web Rtc Update | on | Turn off if your game already runs `WebRTC.Update()`. | No |
-| Clock Ping Interval Seconds | 1 | Clock synchronisation interval. | Yes |
 | Verbose Log | off | Logs the connection steps and the join URL to the Console. Handy for the first try. | Yes |
 | Display Language | Auto | Language of the texts players see (QR caption, Status View). Auto = Japanese on Japanese systems, otherwise English. | Yes |
 
@@ -186,7 +207,14 @@ Player numbers are **slots starting at 0** (`PlayerSlot` 0 is "P1" on screen).
 The QR View finds the Host in the scene, redraws whenever the join URL changes and hides itself while the Host is stopped.
 For an on-screen list of connected players, add *PadPlay → Status View* to a Text.
 
-To invalidate the current QR code (for example between matches) call `RenewToken()`. Phones that already joined stay connected.
+The QR code carries the PC's address, the UDP port, a token and a fresh key. The key never travels over the network: the phone
+uses it to encrypt and authenticate everything it sends and receives, so other devices on the Wi-Fi can neither read nor fake the input
+or the video. It changes every time the host starts. There is no setting to turn encryption off.
+
+To invalidate the current QR code (for example between matches) call `RenewToken()`: it makes a new token and key.
+Phones that already joined stay connected. A joined phone whose Wi-Fi drops shortly after the renewal can still come back to
+its slot with the old code for `host.LinkSettings.RenewGraceMs` (60 s by default, 0 = off); it proves itself with a secret
+it received when it joined, so a new phone always needs the new QR code.
 
 ```csharp
 using PadPlay.Unity;
@@ -218,10 +246,10 @@ public class Lobby : MonoBehaviour
 2. Press **Play** in Unity.
 3. On first run Windows may ask whether Unity may use the network: choose **Allow** (Private networks).
 4. In the app, scan the QR code (or paste the URL shown under it) and tap connect.
-   *(The app UI is currently Japanese only; the connect button reads 「つなぐ」.)*
+   *(The app follows the phone's language: the connect button reads "Connect" in English and 「つなぐ」 in Japanese.)*
 
-`PlayerJoined` fires when the phone is accepted and gets its slot; `PlayerReady` fires when its data channels are open
-and input starts flowing. If it never becomes ready, see [Troubleshooting](#11-troubleshooting).
+`PlayerJoined` fires when the phone is accepted and gets its slot; `PlayerReady` fires right after it,
+when input starts flowing (once per join). If it never becomes ready, see [Troubleshooting](#11-troubleshooting).
 
 A player slot goes through these states (`host.GetPlayerState(slot)`):
 
@@ -353,7 +381,7 @@ Vector2 tilt = gyroCamera.Tilt;
 ```
 
 **Gyro pointer** — *PadPlay → Gyro Pointer* turns the phone into a laser pointer:
-`ViewportPosition` (viewport space: **y = 0 at the bottom**, centre = 0.5, 0.5), `GetScreenPosition()`, `GetRay(camera)`
+`ViewportPosition` (viewport space: **y = 0 at the bottom**, center = 0.5, 0.5), `GetScreenPosition()`, `GetRay(camera)`
 and an optional **Reticle** (`RectTransform`) that follows it.
 
 Naming: the components are called *Gyro* (what you add), the data is called *attitude* (`AttitudeReceived`,
@@ -401,17 +429,30 @@ Gyro components is now off by default; use a *Recenter* role button instead.
 
 ## 9. Second screen (video)
 
-To show a picture on the phone — the Wii U GamePad screen — add *PadPlay → View* to any GameObject
+To show a picture on the phone — the controller's second screen — add *PadPlay → View* to any GameObject
 (or press *Create a camera and attach* in the Host Inspector's **Video** module). The Video module must be ticked (it is by default):
 
 - **Source Camera**: a camera whose output goes to the phone only (the SDK creates its RenderTexture), **or**
   **Source Texture**: a RenderTexture you render yourself.
 - **Player Slot**: who sees it (`-1` = everyone gets the same picture).
-- Width / Height (default 1280 × 720), Frame Rate (60), Max Bitrate (0 = automatic).
+- Width / Height (default 1280 × 720), Frame Rate (60), Max Bitrate Kbps (0 = 2500). The host lowers the bitrate,
+  frame rate and size from there when the Wi-Fi gets worse (*Video → Adaptive Video*).
 - **Use As Touch Target** (on): that player's touches land on this camera's view, so tapping the picture on the phone
   hits the UI / objects shown in it.
 
 While nobody is watching, the source camera is disabled so it costs nothing.
+
+**How the picture is sent.** H.264 by default, through Windows Media Foundation (the GPU's hardware encoder when one works).
+The graphics API decides the path: Direct3D 11 and 12 hand the frame to the encoder without leaving the GPU; Vulkan copies it
+through the CPU (about one frame later); OpenGL, macOS and Linux have no H.264 path and send JPEG. A phone whose H.264 decoding
+turns out slow asks for JPEG by itself (*Codec = Auto*). Lost pieces are repaired with forward error correction; what it cannot repair is
+fixed with a small recovery frame (when the encoder supports it, *Use Ltr Recovery*) or else a key frame. `host.VideoStatus` says which path and encoder are used, or why
+H.264 cannot be used; `host.GetVideoChoice(slot, out choice)` tells whether a player gets H.264 or JPEG and why.
+
+**Render pipelines.** The frame is taken after every camera has drawn it, so overlays drawn by other cameras into the same
+texture are included. In the Built-in Render Pipeline a hidden camera does this; in URP (and other Scriptable Render Pipelines)
+it happens at the end of the frame's rendering (`RenderPipelineManager.endContextRendering`). Nothing to set up either way.
+In URP the *Source Camera* must be a **Base** camera: an Overlay camera only draws as part of its Base camera's stack.
 
 ---
 
@@ -474,6 +515,17 @@ host.SetHaptics(playerSlot: 0, strength: 0.6f);   // same throttling as SetMotor
 host.SetHaptics(playerSlot: 0, strength: 0f);     // stop
 ```
 
+For a single buzz of a set length (a hit, a pickup), use `Pulse`. The phone times it itself, so a hitch in the game does not
+stretch or cut it, and you do not have to send 0 afterwards. A continuous vibration keeps running: the phone plays the pulse
+on top and goes back to it when the pulse ends.
+
+```csharp
+host.Pulse(playerSlot: 0, durationMs: 250, strength: 1f);   // false if the player is away or haptics are off
+```
+
+The phone app caps one vibration at 1 second. Older phone apps play a pulse like a `SetHaptics` command (a running continuous
+vibration then cuts it short).
+
 ---
 
 ## 11. Troubleshooting
@@ -483,7 +535,7 @@ and an in-game overlay — see [Debugging](Debugging.md).
 
 **Cannot connect? Open *Window → PadPlay → Connection Check*.** It checks the items below in this order, says what it found
 and what to do next, and gives you commands to copy. It only reads: it never changes the firewall, the network or the host.
-*Copy report* puts the result on the clipboard (handy for a bug report; it contains no token).
+*Copy report* puts the result on the clipboard (handy for a bug report; it contains no token or key).
 Network and firewall are checked at any time; the port and the connection attempts while playing.
 
 1. **Host.** A `PadPlayHost` is in the scene, running, and *Connection → Loopback Only* is off.
@@ -494,16 +546,16 @@ Network and firewall are checked at any time; the port and the connection attemp
    → A virtual adapter (Hyper-V, WSL, VirtualBox, VMware, Docker) or a VPN (Tailscale, Radmin, ZeroTier, …) comes first,
    or the QR has no Wi-Fi address: put your Wi-Fi IP in *Connection → Host Addresses* (or disable that adapter).
    An address that is no longer this PC's: fix or clear *Host Addresses* (empty = automatic).
-3. **Listening port.** The host listens on TCP port 7780 (*Connection → Port*; if it is busy, the next free port is used and put in the QR).
+3. **Listening port.** The host listens on UDP port 7780 (*Connection → Port*; if it is busy, the next free port is used and put in the QR).
    → Nothing listens: stop and press Play again and look for PadPlay errors in the Console.
 4. **Windows Firewall** — for the **Unity Editor**, and for your **built game** (the last Windows build location) if there is one.
-   They are separate programs and each needs permission. Permission is per program, not per port (the data uses UDP on changing ports).
+   They are separate programs and each needs permission. Permission is per program, not per port (everything uses one UDP port).
    - *Allowed*: fine.
    - *No rule yet*: Windows asks on the first connection; choose **Allow** on **Private** networks.
    - *Blocked*: someone pressed *Cancel* on that dialog, which creates a **Block** rule — Block rules win over Allow rules.
      Disable it in *Windows Defender Firewall → Advanced settings → Inbound Rules* (the rule for `Unity.exe` / your game's exe), then allow the program.
    - *Allowed only on Private networks, but this network is Public*: make the Wi-Fi a **Private** network.
-   - *Only TCP allowed*: phones join but stay at `Connecting`; allow all protocols.
+   - *Only TCP allowed*: nothing gets through (PadPlay uses UDP); allow UDP or all protocols.
    - *Could not read*: check by hand in *Windows Security → Firewall & network protection → Allow an app through firewall*.
 
    The commands it offers (run them yourself in an **administrator** Command Prompt / PowerShell):
@@ -520,13 +572,11 @@ Network and firewall are checked at any time; the port and the connection attemp
    | Result | Meaning | Next |
    |---|---|---|
    | Nothing reached this PC | The phone's connection never arrived. | Same Wi-Fi (2), the QR address (2), the firewall (4). |
-   | Old QR code | The phone used a token from an earlier Play or before `RenewToken()`. | Scan the QR code that is on screen now. |
+   | Old QR code | The phone used a code from an earlier Play or from before `RenewToken()` (its token or key does not match). Joined phones get a grace period after `RenewToken()` (step 4); new phones do not. | Scan the QR code that is on screen now. |
    | Full | All *Max Players* slots are taken, or *Accept New Players* is off. | Raise *Max Players* or accept new players. |
    | Other protocol version | The phone app and the SDK do not match. | Update the app (or the SDK). |
-   | Connected but did not join / not the PadPlay app | Something else connected (a browser, a scanner), or the app gave up. | Scan with the PadPlay app. |
    | Joined | The join worked. | — |
-   | Joined but still `Connecting` after 8 s | The handshake (TCP) got through but the data (UDP) does not — almost always the firewall. | Step 4. |
-
+   
 The Debugger (*Window → PadPlay → Debugger*) has a **Check** button next to the join URL that opens the same window,
 and its Events list shows every refused join (*JoinRejected*). *Verbose Log* prints the connection steps and the join URL to the Console.
 
@@ -540,10 +590,13 @@ A player with a camera target only hits that camera's view. Check *Touch → Mor
 `PadPlayView.UseAsTouchTarget`. `RaycastOnlyPlayerScreen = false` restores "hit whatever is in front".
 
 **Video is black, slow or blurry.**
-- Use Direct3D 11 / 12 or Vulkan; OpenGL Core cannot use the hardware encoder.
-- Non-NVIDIA GPUs encode in software.
-- Several phones with same-size videos: keep *Video → Separate Video Sizes* on (works around a Unity WebRTC issue
-  where same-size NVENC streams can mix frames).
+- Use Direct3D 11 / 12 (fastest) or Vulkan (one frame later). OpenGL, macOS and Linux send JPEG only.
+- The hardware encoder is tried first, then Windows' software encoder (slower). Only NVIDIA's hardware encoder has been tested so far.
+- The Inspector and `host.VideoStatus` say which path and encoder are used, or why H.264 cannot be used (then JPEG is sent);
+  `host.GetVideoChoice(slot, out choice)` tells which one a phone gets and why (for example, the phone asked for JPEG).
+- On a weak Wi-Fi keep *Adaptive Video* on (it lowers the bitrate, then the frame rate or size), pick the *Priority* you prefer,
+  or lower the view's *Max Bitrate Kbps*. A view sent to several players is encoded once, at the quality of the weakest connection.
+- Black even in the Display preview: the source camera or RenderTexture. In PadPlay Lite there is no video.
 
 **"Forward" is off after the player restarts the app.**
 That is expected (the phone's yaw reference changes, and yaw slowly drifts during play). Re-center (step 8): a layout
@@ -553,9 +606,6 @@ button with Role *Recenter*, `host.Recenter(slot)`, or the player long-presses t
 Check that *Buttons* is ticked and *Allow Haptics* is on (vibration belongs to the Buttons module) and that
 *Haptic Strength Scale* is above 0. On the phone, the system vibration setting or Do Not Disturb can silence it.
 The Debugger's Events list shows *HapticSent* when the host sent a vibration.
-
-**I already run `WebRTC.Update()` myself.**
-Turn off *Connection → Run Web Rtc Update* (`RunWebRtcUpdate`) so it is not pumped twice.
 
 ---
 
@@ -567,9 +617,17 @@ or press **Import and open** in *Window → PadPlay → Welcome*.
 | Sample | Scene | Shows |
 |---|---|---|
 | Treasure Map | `Scenes/TreasureMap` | Asymmetric play: the TV shows the island everyone shares, each phone a private map with that player's own treasure. Per-player second screen, touch on the map, haptics. The best way to see what PadPlay is for. |
+| Floating Island | `Scenes/FloatingIsland` | Hold the phone up like a window: it shows a floating island in the direction you point it, while the TV circles the island and draws where each phone is looking. Find five lights that only phones can see. `PadPlayPoseCamera`, taps on 3D objects, `PadPlayPhoneOverlay`, `host.Pulse`. Up to two players; needs a layer named PhoneOnly at index 8 (see below). |
 | Connect Demo | `Scenes/ConnectDemo` | QR, touch on uGUI, buttons, attitude, haptics and a per-player screen. The simplest connection test. |
 | Gyro Window | `Scenes/GyroWindow` | Two players look into a 3D room through their phones (`PadPlayGyroCamera` + `PadPlayView`); the three gyro modes. |
 | Panel Dive | `Scenes/PanelDive` | A small two-player co-op game that uses every module. Also playable with mouse and keys, without a phone. |
+
+**In a URP project.** Treasure Map, Floating Island and Panel Dive use the Built-in *Standard* shader for their 3D objects,
+which URP draws pink. Convert them once after importing: select the materials in the sample's `Materials` folder and use
+*Edit → Rendering → Materials → **Convert Selected Built-In Materials to Current SRP*** (Standard becomes *Universal Render Pipeline/Lit*;
+colors and textures are kept). Avoid *Convert All…* if your project has Built-in materials you want to keep as they are.
+Connect Demo and Gyro Window use *Unlit/Color*, which URP draws as is.
+The samples' scripts already set both `_Color` and `_BaseColor`, so highlights still work after the conversion.
 
 ### Treasure Map (asymmetric play)
 
@@ -600,10 +658,49 @@ Open `Scenes/TreasureMap` and press Play. The TV (Game view) shows an island see
 All feel values (walking speed, how near counts as "found", vibration strengths, round length) are in
 *TreasureMapGame → Settings* and can be changed while playing.
 
+### Floating Island (the phone as a window)
+
+Open `Scenes/FloatingIsland` and press Play. The TV (Game view) slowly circles a floating island; each phone is a window into
+the same world, in the direction the player points it ([Pose Camera](PoseCamera.md)). Up to two players.
+
+**Before you play.** The hidden lights are on layer 8, which the TV camera leaves out. Name layer 8 **PhoneOnly** in
+*Project Settings → Tags and Layers*. Layers work by number, so the sample runs without the name, but it logs a warning once
+per Play, and objects of your own on layer 8 are hidden from this sample's TV.
+
+**How to play**
+
+- Scan the QR code with one or two phones. The QR board on the TV shows while more players can join.
+- Point the phone to look around. Drag with one finger to turn sideways; pinch or hold **+** / **−** to zoom.
+  **Front** re-centers the view and resets the added turn and the zoom.
+- Tap something to inspect it: its name shows on your phone and it glows in your player color for a moment; the phone buzzes softly.
+- Five lights are hidden around the island, and only phones can see them. Tap one to find it: the phone buzzes strongly and
+  the light appears on the TV too. The TV shows how many were found and what each player inspected last.
+- When all five are found, a short celebration plays (a beam of light, spiraling pieces, flowers); after 20 seconds the lights
+  hide again. They also hide again when everyone leaves.
+- The TV draws a glowing frame where each phone is looking.
+- Only phone fingers count, so the mouse alone does not play it. Without a phone, use simulated phones
+  (*Window → PadPlay → Virtual Phones*; right-drag on a phone's screen to turn it).
+
+**What it shows**
+
+| SDK feature | Where in the sample |
+|---|---|
+| Pose Camera | `PadPlayPoseCamera` + `PadPlayView` on each player's camera: the PC renders for the phone's orientation and the phone corrects the turn made since that frame |
+| Taps on 3D objects in the frame the player saw | `FloatingIslandPhone.OnPointerUp` → `PadPlayPoseCamera.ScreenPointToRay(eventData)` → `FloatingIslandGame.Inspect` (a physics raycast) |
+| Where each phone looks | `FloatingIslandFrustum` reads `PadPlayPoseCamera.TryGetLastFrame` and draws the frame on a layer the phone cameras leave out (UI), so only the TV shows it |
+| Text fixed to the phone screen | `PadPlayPhoneOverlay`: the phone draws the text over the video, so it does not move with the correction; its rectangle follows `VisibleViewportRect` |
+| Haptics of a set length | `host.Pulse(slot, durationMs, strength)` (the phone times it) |
+| Objects only phones see | Layer 8 (PhoneOnly) is left out of the TV camera; a found light moves to *Default* |
+| Buttons | `Layouts/FloatingIslandButtons`: Front (Role *Recenter*), + and − |
+| Choosing modules | All four ticked (Touch, Attitude, Buttons, Video); *Max Players* 2 |
+
+All feel values (drag turn, zoom range and speed, what counts as a tap, vibration strengths and lengths, how long names and
+highlights stay, the celebration length) are in *FloatingIslandGame → Settings* and can be changed while playing.
+
 ### Panel Dive (two-player co-op)
 
 *Package Manager → PadPlay SDK → Samples → Panel Dive → Import*, then open `Scenes/PanelDive`.
-A small playable game that uses every module of the SDK at once, modelled on the student project behind it:
+A small playable game that uses every module of the SDK at once, modeled on the student project behind it:
 the TV shows one comic page with four panels, and each phone is a window into the panel its player is in.
 
 **How to play**
@@ -611,10 +708,10 @@ the TV shows one comic page with four panels, and each phone is a window into th
 - Scan the QR code with one or two phones. Each player dives into a panel (reading order: top-right, top-left, bottom-right, bottom-left).
 - Tilt the phone to look around the room and find the hidden stars. Touch a star, keep your finger on it and carry it into the
   yellow **exit** frame to collect it (tilting while holding carries the star with your view). The phone buzzes softly when a star is
-  near the centre of the view and strongly when you collect one.
+  near the center of the view and strongly when you collect one.
 - With two players, **your stars are visible only while the other player holds A** — talk to each other.
   Alone, the stars are always visible. Collect all stars on the page to turn to the next one.
-- **Select** ("Recenter", Role *Recenter*) re-centres the view. If a phone drops, its panel is kept and the partner waits until it reconnects.
+- **Select** ("Recenter", Role *Recenter*) re-centers the view. If a phone drops, its panel is kept and the partner waits until it reconnects.
 - No phone? Press Play anyway: the PC player appears in the first panel. Drag stars with the **mouse**, look around with
   **arrow keys / WASD**, **R** to face the exit.
 

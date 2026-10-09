@@ -7,8 +7,8 @@ lang: en
 
 > This is the online copy of the documentation that ships inside the package (`Documentation~`). SDK 0.2.0. [All pages](./) · [Support](https://github.com/Petaf000/PadPlay)
 
-PadPlay SDK turns a phone into a Wii U GamePad–style controller: a touch screen that shows its own view of the game,
-plus a gyro and on-screen buttons. This page explains *how* it is put together and *why*, so the behaviour you see in
+PadPlay SDK turns a phone into a controller with a second screen: a touch screen that shows its own view of the game,
+plus a gyro and on-screen buttons. This page explains *how* it is put together and *why*, so the behavior you see in
 [Quick Start](QuickStart.md) is not a surprise.
 
 ## Where the ideas come from
@@ -26,7 +26,7 @@ part of the SDK:
 | Several wireless controllers cross-talked unless each was addressed by name. | Each phone gets a **player slot**; a **token in the QR code** decides who may join. |
 | Masked images blocked rays and transparent pixels were hit. | A **custom raycaster** with per-player screens and alpha hit testing. |
 | The controller was exposed as a custom Input System device. | Each phone is a **`PadPlayPad`**, which *is a* `Gamepad`. |
-| External streaming tools and custom hardware were fragile. | Video is streamed by the SDK itself (WebRTC); the phone's own sensors replace the hardware. |
+| External streaming tools and custom hardware were fragile. | Video is streamed by the SDK itself (PadPlay Link, H.264 or JPEG); the phone's own sensors replace the hardware. |
 
 ## The big picture
 
@@ -48,20 +48,20 @@ flowchart LR
         S["PadPlayView<br/>camera / RenderTexture"]
     end
 
-    T -- "input channel<br/>(unordered, no retransmit)" --> H
+    T -- "state every 8 ms<br/>(latest only, no retransmit)" --> H
     B -- input --> H
     G -- input --> H
     H --> D --> UI
     H --> P --> IA
-    S -- "WebRTC video (H.264)" --> V
-    H -. "control channel (reliable)<br/>layout · haptic · calibrate" .-> B
+    S -- "video (H.264 / JPEG, FEC)" --> V
+    H -. "reliable messages<br/>layout · haptic · calibrate" .-> B
 ```
 
 ### Core and Unity
 
 The package has two assemblies:
 
-- **`PadPlay.Core`** — plain C# (C# 9, netstandard2.1, no engine references): the protocol, sessions and signaling,
+- **`PadPlay.Core`** — plain C# (C# 9, netstandard2.1, no engine references): the protocol, sessions, PadPlay Link (one encrypted UDP port),
   coordinate mapping, attitude math, clock sync, QR encoding. Everything that can be tested without Unity lives here, so
   other engines can reuse it later.
 - **`PadPlay.Unity`** — the adapters: `PadPlayHost`, event injection, the raycaster, the Input System device,
@@ -69,7 +69,7 @@ The package has two assemblies:
 
 As a game developer you mostly touch `PadPlay.Unity`. A few Core types appear in its API (for example
 `AttitudeCalibrationMode`, `ClockSync`, `DeviceInfo`), so some scripts also need `using PadPlay.Core.Input;`.
-The rest of Core (packet encoders such as `TouchPacket`, `PointerTracker`, `SignalingServer`, `JoinRequest`) is public for
+The rest of Core (packet encoders such as `TouchPacket`, `PointerTracker`, `LinkHost`, `LinkClient`) is public for
 advanced use — fake phones in tests or an integration for another engine — and is not needed in a Unity game.
 
 ### Modules
@@ -89,18 +89,18 @@ sequenceDiagram
     participant Game as Unity (PadPlayHost)
     participant Phone as PadPlay
     Game->>Game: StartHost → join URL with a fresh token
-    Game-->>Phone: QR code  padplay://join?v=1&h=…&p=7780&t=…
-    Phone->>Game: WebSocket "join" (token, device info)
-    Game->>Phone: accepted → player slot  (PlayerJoined)
-    Game->>Phone: WebRTC offer: data channels "input" + "control" (+ video)
-    Phone->>Game: answer, ICE candidates
-    Note over Game,Phone: both channels open → PlayerReady
-    Phone-)Game: touch / gyro / buttons on "input"
-    Game-)Phone: layout / haptic / calibrate on "control"
+    Game-->>Phone: QR code  padplay://join?v=1&h=…&p=7780&t=…&k=…
+    Phone->>Game: UDP Hello (token, device info, capabilities), sealed with k
+    Game->>Phone: Accept → player slot  (PlayerJoined, then PlayerReady)
+    Phone-)Game: touch / gyro / buttons: the whole state every 8 ms
+    Phone->>Game: touch down/up, button changes (reliable)
+    Game-)Phone: layout / haptic / calibrate (reliable), video
 ```
 
-- The QR code contains the PC's LAN address, the port and a **token**. Only phones presenting the current token are
-  accepted. `RenewToken()` makes a new code; already-joined phones stay.
+- The QR code contains the PC's LAN address, the UDP port, a **token** and a key `k`. Only phones presenting the current token are
+  accepted. `RenewToken()` makes a new code; already-joined phones stay. A joined phone that drops right after a renewal may still
+  come back to its slot with the old code for `host.LinkSettings.RenewGraceMs` (60 s; 0 = off), but only with the resume secret it
+  received when it joined: the device id alone is not enough, and new phones always need the new code.
 - Each accepted phone gets a **player slot** (0, 1, 2 …). Every input event, every `PadPlayPointerEventData` and
   every `PadPlayPad` carries that slot, so two players never mix.
 - If a phone drops without saying goodbye (Wi-Fi blip, app sent to background or closed), its slot is **held** for
@@ -113,15 +113,29 @@ sequenceDiagram
 - `AcceptNewPlayers = false` closes the lobby: new phones are refused as "full", held slots can still resume.
 - Only the same LAN is supported. No STUN/TURN servers are used.
 
-### Two channels
+### Encryption
 
-| Channel | Delivery | Carries |
+Every packet after the QR code is encrypted and authenticated with **ChaCha20-Poly1305**. The key `k` is random, made anew on every
+`StartHost` and `RenewToken`, and only travels inside the QR code — never over the network. Each connection derives its own keys from it
+(HKDF-SHA256), and every packet carries a sequence number, so packets that were changed, replayed or sealed with another key are dropped and counted.
+Someone on the same Wi-Fi who has not seen the QR code can therefore neither read nor fake touches, buttons, the attitude or the video,
+nor take over a player's slot.
+What it does not hide: that traffic exists, its size and timing. It does not protect against people who can see the QR code (they can join, like anyone
+you show it to) or against jamming the Wi-Fi. Only two short "cannot join" answers (other protocol version; a code that does not match) are sent unencrypted,
+so that a phone with an old QR code is told so at once; they carry no game data.
+
+There is no setting that turns encryption off, so a game cannot ship without it by mistake. The cryptography is implemented in the package
+from the public specifications (RFC 8439, RFC 5869, FIPS 180-4), with no third-party code and no allocation per packet.
+
+### State and reliable messages
+
+| Kind | Delivery | Carries |
 |---|---|---|
-| `input` | unordered, no retransmission | touch, attitude, buttons — a late packet is useless, a newer one replaces it |
-| `control` | reliable, ordered | touch down/up and button changes (sent again here so a tap or a press is never lost), layout, haptics, calibration, clock ping/pong, screen orientation |
+| state (Data) | every 8 ms, no retransmission | touch, attitude, buttons — the whole current state each time, so a lost packet is replaced by the next |
+| reliable messages | resent until acknowledged, ordered | touch down/up and button changes (so a tap or a press is never lost), layout, haptics, calibration, screen orientation, video settings |
 
-Old or duplicated input packets are dropped by sequence number. Your code only sees the events in order, on the main thread.
-A button press that arrives late on `control` is still applied once (then the current state), and the pad changes a given
+Old or duplicated packets are dropped by sequence number. Your code only sees the events in order, on the main thread.
+A button press that arrives late as a reliable message is still applied once (then the current state), and the pad changes a given
 button at most once per Input System update, so a press and release in the same frame are both seen.
 
 ## Touch
@@ -173,8 +187,8 @@ the same choice the original project made with its sensor) and angular velocity.
 left-handed space, where **identity = phone upright in portrait, screen facing you**, and:
 
 - **calibrates yaw on connect** (the direction the player faces becomes forward);
-- **smooths over network jitter**: samples carry the phone's timestamp; with the clock offset from ping/pong the SDK
-  extrapolates a short way and blends corrections in, so the camera does not stutter when packets bunch up.
+- **smooths over network jitter**: samples carry the phone's timestamp; with the clock offset (measured from the timestamps
+  that every packet echoes back) the SDK extrapolates a short way and blends corrections in, so the camera does not stutter when packets bunch up.
 
 `PadPlayGyroCamera` and `PadPlayGyroPointer` sit on top of this. Their re-centering is local to the
 component, so it does not change the pad's attitude that other code reads.
@@ -191,14 +205,37 @@ the gyro pointer's `ViewportPosition` is Unity viewport space with **y = 0 at th
 The phone has no fixed button set. The game sends a **layout** — ids, shapes, centers and sizes in the same 0…1
 video-area coordinates as touch — and the phone draws it above the touch layer. Fingers that start on a button go to
 the button — or within 2.5 mm of its edge, to the nearest button (a setting of the app, not of the layout);
-all others are touches. Pressed bits and stick values come back on the `input` channel and land in the
+all others are touches. Pressed bits and stick values come back in the state and land in the
 `PadPlayPad`. Changing the layout asset while playing resends it, so positions can be tuned by hand.
 
 ## Second screen (video)
 
-`PadPlayView` streams a camera or RenderTexture to one player (or to everyone) over WebRTC, preferring H.264 so that
-NVIDIA's hardware encoder (NVENC) is used. Adding or changing a view while connected renegotiates by rebuilding that
-player's connection (`PlayerReady` fires again; the slot and the pad stay). Cameras that nobody watches are disabled.
+`PadPlayView` streams a camera or RenderTexture to one player (or to everyone) over PadPlay Link, on the same UDP port as the input.
+Adding or changing a view while connected only switches that player's video (the connection, the slot and the pad stay;
+`PlayerReady` does not fire again). Cameras that nobody watches are disabled, and nothing is encoded while nobody watches.
+
+**Codec.** H.264 from Windows Media Foundation (the GPU's hardware encoder when one works, otherwise Windows' software encoder), or
+JPEG (Unity's own JPEG encoder; the phone app decodes it with Flutter). With `Settings.Video.Codec = Auto`, every player starts with H.264;
+the phone measures how fast it decodes H.264 and asks for JPEG when it is too slow (or when the app knows the model needs it), and the host
+switches that player only. A host without H.264 sends JPEG to everyone. The SDK bundles no codec of its own (see *Video codecs* in the
+package README). `host.GetVideoChoice(slot, out choice)` tells which codec a player gets and why.
+
+**Graphics APIs.** Direct3D 11 and Direct3D 12 hand the rendered frame to the encoder without leaving the GPU (Direct3D 12 through a
+shared texture and fence). Vulkan reads the frame back to the CPU first (about one frame later). OpenGL, macOS and Linux have no H.264 path
+and send JPEG. `host.VideoStatus` shows the path, the encoder and the reason when H.264 is not used.
+
+**Weak Wi-Fi.** Lost pieces of a frame are repaired with Reed-Solomon forward error correction, which grows with the measured loss.
+What cannot be repaired is fixed with a small recovery frame that refers to an older frame the phone still has (when the encoder supports it),
+and only then with a key frame. The phone shows the newest complete frame and waits (at most *Max Playout Frames*) only while frames arrive unevenly.
+With *Adaptive Video* the host watches each player's loss, delay and received rate: it lowers the bitrate at once when the network is congested,
+then the frame rate or the size (*Priority*), and raises them again slowly. A view sent to several players is encoded once, at the quality of
+the weakest connection.
+
+## Editions: PadPlay SDK and PadPlay Lite
+
+**PadPlay Lite** (free) is the same package and works the same way, but leaves out: more than one player (*Max Players* is capped at 1),
+second-screen video (`PadPlayView` and the encoder are not included, so the *Video* module does nothing), the samples other than
+*Connect Demo* (without video) and the phone app source code. `PadPlayEdition.IsLite` tells your code which one it runs in.
 
 ## Tuning by feel
 

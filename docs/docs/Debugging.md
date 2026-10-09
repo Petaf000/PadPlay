@@ -78,12 +78,12 @@ the **Join URI** with *Copy* (paste it into the phone app when the camera cannot
 | Column | Meaning |
 |---|---|
 | Device | Phone model and OS. |
-| State | `Connecting` (joined, channels not open), `Ready`, `Reconnecting` (dropped, slot held for *Resume Hold Seconds*), `Gone` (left; the reason in brackets). |
-| RTT ms | Round trip of the control channel's clock pings. |
+| State | `Connecting` (joined, input not flowing yet), `Ready`, `Reconnecting` (dropped, slot held for *Resume Hold Seconds*), `Gone` (left; the reason in brackets). |
+| RTT ms | Round trip over PadPlay Link: the median of the recent round trips, measured from the time stamps that the packets echo back (`ClockSync.RoundTripMs`). |
 | Clock ms | Phone clock minus PC clock (`ClockSync.OffsetMs`). |
-| Touch / Gyro / Btn Hz | Packets per second arriving from the phone. `(off)` = it arrives, but the module is unticked so the host drops it. |
+| Touch / Gyro / Btn Hz | Input updates per second from the phone. PadPlay Link sends the whole state in every packet, so these count changes, not packets: *Touch* = moves of fingers that are down (presses and releases are not counted), *Gyro* = new attitude samples, *Btn* = button and stick changes. Touch and Btn read 0 while nothing moves or changes. `(off)` = it arrives, but the module is unticked so the host drops it. |
 | Last in | Seconds since any input arrived. |
-| Video | Sent resolution, frame rate, measured bitrate and encode time per frame (from WebRTC stats, once a second). |
+| Video | The encoder's current resolution and frame rate (lowered on a slow network), and the measured bitrate of the video packets, FEC included (from the sender's statistics, once a second; H.264 or JPEG). The last field, the encode time, reads `? ms`: PadPlay Link does not report it. |
 | Rot | The phone's display rotation in degrees. |
 
 **Details of the selected player** (click *P1*, *P2*, … in the first column):
@@ -148,9 +148,10 @@ diagnostics.CopyEvents(events);      // oldest first; diagnostics.TotalEventCoun
 
 | Member | |
 |---|---|
-| `host.Diagnostics` | `PadPlayDiagnostics`: `Players`, `TryGetPlayer(slot, out player)`, `LastJoinAttempt` (`JoinAttempt`: `RemoteAddress`, `AtMs`, `Result` = Waiting / Accepted / BadToken / Full / Version / NoJoin / NotWebSocket, `PlayerSlot`; null = nothing connected yet), `JoinAttemptCount`, `EventCount`, `TotalEventCount`, `GetEvent(i)`, `CopyEvents(list)`, `ClearEvents()`, `EventCapacity` (512). |
-| `PadPlayPlayerDiagnostics` | `PlayerSlot`, `Device`, `AppVersion`, `State`, `LeftReason`, `JoinedHostMs`, `ResumeCount`, `TouchRateHz`, `AttitudeRateHz`, `ButtonsRateHz`, `LastTouchHostMs`, `LastAttitudeHostMs`, `LastButtonsHostMs`, `LastInputHostMs`, `Touches`, `HasAttitude`, `Attitude`, `HasButtons`, `Buttons` (last packet received), `GameButtonBits` (held now, as the game reads them), `TotalButtonPresses`, `GetButtonPressCount(id)`, `GetButtonLastPressedHostMs(id)`, `GetButtonLastReleasedHostMs(id)`, `IsButtonLit(id, nowMs, minLitMs)`, `GetLitButtonBits(nowMs, minLitMs)`, `HasScreenRotation`, `ScreenRotationDegrees`, `HapticStrength`, `LayoutsSent`, `PacketsReceived`. Times use the `PadPlayHost.NowMs` clock (−1 = never). |
+| `host.Diagnostics` | `PadPlayDiagnostics`: `Players`, `TryGetPlayer(slot, out player)`, `LastJoinAttempt` (`JoinAttempt`: `RemoteAddress`, `AtMs`, `Result` = Accepted / BadToken (old QR code: token or key does not match) / Full / Version, `PlayerSlot`; null = nothing connected yet. The enum also has Waiting / NoJoin / NotWebSocket, which PadPlay Link never reports), `JoinAttemptCount`, `EventCount`, `TotalEventCount`, `GetEvent(i)`, `CopyEvents(list)`, `ClearEvents()`, `EventCapacity` (512). |
+| `PadPlayPlayerDiagnostics` | `PlayerSlot`, `Device`, `AppVersion`, `State`, `LeftReason`, `JoinedHostMs`, `ResumeCount`, `TouchRateHz`, `AttitudeRateHz`, `ButtonsRateHz`, `LastTouchHostMs`, `LastAttitudeHostMs`, `LastButtonsHostMs`, `LastInputHostMs`, `Touches`, `HasAttitude`, `Attitude`, `HasButtons`, `Buttons` (last state received), `GameButtonBits` (held now, as the game reads them), `TotalButtonPresses`, `GetButtonPressCount(id)`, `GetButtonLastPressedHostMs(id)`, `GetButtonLastReleasedHostMs(id)`, `IsButtonLit(id, nowMs, minLitMs)`, `GetLitButtonBits(nowMs, minLitMs)`, `HasScreenRotation`, `ScreenRotationDegrees`, `HapticStrength`, `LayoutsSent`, `PacketsReceived` (input updates, counted as in the *Hz* columns). Times use the `PadPlayHost.NowMs` clock (−1 = never). |
 | `PadPlayDebugEvent` | `HostMs`, `PlayerSlot` (−1 = host), `Kind` (`PadPlayDebugEventKind`), `Detail`. |
+| Video (on `PadPlayHost`) | `VideoStatus` (graphics API path, encoder, each player's codec, or why H.264 cannot be used; English text for people), `GetVideoChoice(slot, out LinkCodecChoice)` (`Codec`, `Reason` as an enum, `Detail`), `RequestVideoStats(slot, callback)` / `CollectVideoStats(slot, into)` (`PadPlayVideoStats`, the numbers of the *Video* column). |
 | `host.Settings.Preview` | `PadPlayPreviewSettings`: `Mode` (`PadPlayPreviewMode`), `PlayerDisplays`, `ShowTouches`, `ShowButtons`, `OverlayOpacity`, `ShowCaption`, `ButtonHighlightMs` (0), `IsActive(isEditor)`, `GetDisplay(slot)`. |
 | `PadPlayDebugOverlay` | `Host`, `Visible`, `ToggleKey`, `BuildText()`. |
 
@@ -163,9 +164,9 @@ Input counts include input of unticked modules (it arrived, the host then droppe
 
 *Window → PadPlay → Virtual Phones* (or **Virtual Phones** in the Host Inspector's *Debug* section) connects simulated phones
 to the host while playing in the Editor — like a simulator for a console controller. Each one joins **the same way the phone app does**
-(the join URI's token, the WebSocket signaling, WebRTC `input` / `control` channels), so your game cannot tell it from a real phone:
+(the join URI's token and key, PadPlay Link over UDP: Hello, the state every 8 ms, reliable messages, video), so your game cannot tell it from a real phone:
 it gets a player slot, `PlayerJoined` / `PlayerReady`, a `PadPlayPad`, uGUI pointer events, `PlayerLeft` / `PlayerRemoved`.
-Real phones can join at the same time (for example a real phone is P1 and a virtual one P2).
+Real phones can join at the same time (for example a real phone is P1 and a simulated one P2).
 
 1. Press **Play**, open the window and press **Add phone** (once per player, up to *Max Players*).
 2. Each phone shows the player's screen — the `PadPlayView` texture sent to that player (grey with *no video* when the player has
@@ -175,10 +176,12 @@ Real phones can join at the same time (for example a real phone is P1 and a virt
 | Input | How |
 |---|---|
 | Touch | Left mouse button on the screen = one finger (press, drag, release). Positions outside the video area are clamped, like on the phone. |
+| Pinch | **Ctrl + left drag** (Cmd on a Mac) = two fingers, the second mirrored around the center of the screen (drag away from the center to spread). **Mouse wheel** over the screen = two fingers around the mouse that spread (wheel up) or close (wheel down) and lift a moment after the wheel stops. The window shows these keys under each phone. |
 | Buttons and sticks | Left mouse button on a button or a stick of the layout. Buttons with the same *Group* can be slid across while held. |
 | Keys | The selected phone (the one you clicked last, outlined in its player color) while the window has focus. Defaults: Space = A (South), Left Shift = B (East), Q = X (West), E = Y (North), Z / C = LB / RB, Return = Start, Tab = Select, arrows = D-pad, WASD = left stick, IJKL = right stick. Change them under **Keys** (saved per computer). |
 | Tilt | **Yaw** (turn right = +), **Pitch** (look down = +), **Roll** (lean left = +) sliders. The values are the Euler angles your game reads from `pad.attitude` before any recenter. **Face front** sets them back to 0; **Recenter request** sends the same request as the phone's corner long-press. |
-| Vibration | The phone's frame glows while a haptic command is running (brighter = stronger). |
+| Vibration | The phone's frame glows while a haptic command is running (brighter = stronger). A `host.Pulse` glows for its length on top of a continuous vibration. |
+| Phone Overlay | Text and boards sent with a Phone Overlay / `host.SetPhoneOverlay` are drawn over the picture, fixed (rich text as the Editor draws it). |
 | Disconnect / Reconnect | **Disconnect** drops the connection silently (like Wi-Fi going away): the slot is held for *Resume Hold Seconds*, and **Reconnect** returns to the same player (`PlayerJoined` with `Resumed`). |
 | Remove | Leaves with `bye`: the slot is freed (`PlayerRemoved`) and the phone disappears from the window. |
 
@@ -186,9 +189,9 @@ Like the phone app, a virtual phone only sends buttons and sticks that exist in 
 buttons was sent (no layout → the keys do nothing). It does not report a screen rotation, so the gyro components use the sliders as they are.
 The joined device reads *PadPlay Virtual Phone* (1080 × 2400, landscape) in the Debugger.
 
-Limits: one finger (no multi-touch), no real sensor noise or network loss, and no video is decoded (the window draws the
+Limits: two fingers at most (pinch only), no real sensor noise or network loss, and no video is decoded (the window draws the
 texture the host is about to send, so encoding problems only show on a real phone).
-Virtual phones exist only in the Editor: nothing of them is included in a built game, and they are closed when you stop playing.
+Simulated phones exist only in the Editor: nothing of them is included in a built game, and they are closed when you stop playing.
 
 ---
 
@@ -197,13 +200,15 @@ Virtual phones exist only in the Editor: nothing of them is included in a built 
 | Symptom | Look at |
 |---|---|
 | The phone never connects | *Connection Check* (or the Debugger's **Check** button): its last section says whether anything reached the PC (nothing / old QR / full), the others point at the Wi-Fi address, the port or the firewall. |
-| Stuck in `Connecting` | The data channels do not open: Windows Firewall blocks UDP for Unity. *Connection Check* flags it after 8 s and shows the firewall rule. |
-| `Ready`, but the game reacts to nothing | Debugger *Hz* columns: numbers arrive → check the module checkboxes (`(off)`) and your code; zero → the phone app sends nothing (buttons are sent only when a layout with buttons was sent: look for *LayoutSent* in Events). |
+| Nothing arrives at all | Windows Firewall blocks UDP for Unity (PadPlay uses one UDP port; a rule that allows only TCP does not help). *Connection Check* shows the firewall rule. |
+| "Old QR code" right after `RenewToken()` | New phones need the new code. A phone that had joined comes back with the old code only within `host.LinkSettings.RenewGraceMs` (60 s) and only if the app kept its resume secret (it was not reinstalled or its data cleared). |
+| The phone gets JPEG instead of H.264 | `host.VideoStatus` / `GetVideoChoice(slot, out choice)`: the reason is the host setting, no H.264 on this PC (OpenGL, macOS / Linux, no encoder), or the phone asked for it (slow H.264 decoding). |
+| `Ready`, but the game reacts to nothing | Debugger *Hz* columns while you move the phone, touch and press: numbers arrive → check the module checkboxes (`(off)`) and your code; zero → nothing arrives from the phone (buttons are sent only when a layout with buttons was sent: look for *LayoutSent* in Events). |
 | Buttons do nothing | Debugger *Buttons* grid lights up? Yes → your bindings (Input Debugger, `<PadPlayPad>/custom20`…). No → the layout / the phone. |
 | Some taps seem missed | Debugger *Buttons* press count: tap N times and compare. N → the game received every press (check how your code reads it, e.g. `isPressed` polled in `FixedUpdate`). Fewer → presses were lost on the way (Wi-Fi; *Btn Hz*). |
 | Touches land on the wrong thing | Display preview: is the dot where the finger is? Then check *Touch → Player Targets* and `PadPlayView.UseAsTouchTarget`. |
 | The phone shows black or the wrong picture | Display preview: the same texture is sent. Black there too → the source camera / RenderTexture. Fine there → video encoding or the network (Debugger *Video* column: fps and kbps). |
-| Gyro feels laggy or jumpy | Debugger *Gyro Hz* (about 60 expected) and *RTT*; tune *Attitude* settings. |
+| Gyro feels laggy or jumpy | Debugger *Gyro Hz* (about 120 expected: the PadPlay app sends the attitude 120 times a second) and *RTT*; tune *Attitude* settings. |
 | A player keeps dropping | Events: repeated *Left* / *Resumed*, and the reason (`closed`, `timeout`). |
 | Vibration does not happen | Events: *HapticSent* appears? No → *Buttons → Allow Haptics* / strength scale; yes → the phone (silent mode, vibration settings). |
 | No phone at hand, or need a second player | Virtual Phones: add one per player. |
