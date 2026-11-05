@@ -1,0 +1,24 @@
+name: Problem with the PadPlay app / PadPlay のアプリの問題
+description: For players. The app does not connect, the picture breaks up, or something else is wrong. / 遊ぶ人向け。つながらない・映像が乱れるなど。
+labels: ["app"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This page is public.** In the app, open About (i) → Report a problem → Copy, and paste it below. Your name and Wi-Fi name are not in it. If you do not want it to be public, use "Send by email" in the app instead.
+        **このページはだれでも読めます。** アプリの「このアプリについて」(i)→「問題を報告する」→「コピー」を押して、下に貼ってください。名前や Wi-Fi の名前は入っていません。公開したくない時は、アプリの「メールで送る」を使ってください。
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened / 何が起きたか
+      description: What you were doing, and what went wrong. The game's name helps. / 何をしていて、どうなったか。ゲームの名前があると助かります。
+    validations:
+      required: true
+  - type: textarea
+    id: phone-report
+    attributes:
+      label: Phone report / スマホの報告
+      description: About (i) → Report a problem → Copy. / 「このアプリについて」(i)→「問題を報告する」→「コピー」。
+      render: text
+    validations:
+      required: true

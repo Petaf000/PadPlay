@@ -1,12 +1,12 @@
 name: Bug report / 不具合の報告
-description: Something does not work as expected. / 期待どおりに動かない。
+description: Something does not work as expected. Paste the PC's support report and the phone's report. / 期待どおりに動かない。PC の報告とスマホの報告を貼ってください。
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting. This page is public: do not paste personal information, keys or passwords.
-        報告ありがとうございます。このページはだれでも読めます。個人情報・鍵・パスワードは貼らないでください。日本語でも英語でも大丈夫です。
+        Thanks for reporting. **This page is public**: check the reports before you paste them. Names, folders, the join token and key, the network name and public addresses are already taken out (the last line of each report says what was removed). For anything you do not want to make public, email petaf570@gmail.com instead.
+        報告ありがとうございます。**このページはだれでも読めます**。貼る前に報告の中身を確かめてください。名前・フォルダ・参加のトークンと鍵・ネットワークの名前・外のアドレスはもう消してあります(各報告の最後の行に消した物が出ます)。公開したくない物は petaf570@gmail.com へメールで送ってください。日本語でも英語でも大丈夫です。
   - type: textarea
     id: what
     attributes:
@@ -23,51 +23,49 @@ body:
         2.
         3.
   - type: input
+    id: session-code
+    attributes:
+      label: Session code / 照合の番号
+      description: |
+        The same 8 characters are in the PC's report ([host]) and the phone's report ([summary]) for the same game run, so the two can be matched. Filled in when you open this form from PadPlay Debug → Report.
+        同じゲームの起動なら、PC の報告([host])とスマホの報告([summary])に同じ 8 文字が出ます。PadPlay デバッグ → 報告のタブから開くと入っています。
+      placeholder: "e.g. ea32-94c7"
+  - type: textarea
+    id: pc-report
+    attributes:
+      label: PC support report / PC の報告
+      description: |
+        Unity Editor: Window > PadPlay > PadPlay Debug → Report → Collect a report (it is copied). A built game: the Debug Overlay's report key (F9) saves it in Documents/PadPlay Reports. Long reports can be attached as the .zip instead.
+        Unity エディタ: Window > PadPlay > PadPlay Debug → 報告 → 報告をまとめる(コピーされます)。ビルドしたゲーム: Debug Overlay の報告のキー(F9)で Documents/PadPlay Reports に保存されます。長い時は .zip を添付してください。
+      render: text
+  - type: textarea
+    id: phone-report
+    attributes:
+      label: Phone report (PadPlay app) / スマホの報告(PadPlay のアプリ)
+      description: |
+        In the app: About (i) → Report a problem → Copy. Also shown under "Could not connect".
+        アプリの「このアプリについて」(i)→「問題を報告する」→「コピー」。「つながりません」の下にもあります。
+      render: text
+  - type: input
     id: sdk
     attributes:
       label: PadPlay SDK version / SDK の版
-      placeholder: "e.g. 0.2.0 (PadPlay SDK or PadPlay Lite)"
+      description: Only if you paste no PC report (it has the version). / PC の報告を貼らない時だけ(報告に入っています)。
+      placeholder: "e.g. 1.0.0 (PadPlay SDK or PadPlay Lite)"
   - type: input
     id: unity
     attributes:
       label: Unity version / Unity の版
-      placeholder: "e.g. 6000.6.0f1"
-    validations:
-      required: true
-  - type: input
-    id: os
-    attributes:
-      label: PC OS / PC の OS
-      placeholder: "e.g. Windows 11 24H2"
-    validations:
-      required: true
-  - type: input
-    id: gpu
-    attributes:
-      label: GPU and graphics API / GPU とグラフィックス API
-      placeholder: "e.g. NVIDIA GeForce RTX 4070, Direct3D 12"
+      description: Only if you paste no PC report. / PC の報告を貼らない時だけ。
+      placeholder: "e.g. 6000.0.67f1"
   - type: input
     id: phone
     attributes:
       label: Phone model and OS / スマホの機種と OS
+      description: Only if you paste no phone report. / スマホの報告を貼らない時だけ。
       placeholder: "e.g. Google Pixel 8, Android 15 / iPhone 15, iOS 18"
-    validations:
-      required: true
-  - type: input
-    id: app
-    attributes:
-      label: PadPlay app version / アプリの版
-      description: Shown in the app's "About and licenses" screen. / アプリの「このアプリについて・ライセンス」にあります。
-  - type: textarea
-    id: connection-check
-    attributes:
-      label: Connection Check result / 接続チェックの結果
-      description: |
-        If the problem is about connecting: in the Unity Editor open Window > PadPlay > Connection Check and paste the result. Remove anything you do not want to make public.
-        接続の問題なら: Unity エディタの Window > PadPlay > Connection Check の結果を貼ってください。公開したくない部分は消してください。
-      render: text
   - type: textarea
     id: logs
     attributes:
-      label: Console log or screenshots / Console のログ・スクリーンショット
+      label: Other logs or screenshots / ほかのログ・スクリーンショット
       description: Errors from the Unity Console, the Debugger, or screenshots. / Unity の Console・Debugger のエラー、スクリーンショット。

@@ -3,6 +3,9 @@ contact_links:
   - name: Discussions (questions, ideas, show your game) / 質問・アイデア・作品の紹介
     url: https://github.com/Petaf000/PadPlay/discussions
     about: Ask and talk in public. / 公開の場で質問・相談できます。
+  - name: Contact by email (not public) / メールでの問い合わせ(公開されません)
+    url: https://petaf.dev/contact/
+    about: For reports you do not want to make public, email petaf570@gmail.com. / 公開したくない報告は petaf570@gmail.com へ。
   - name: Privacy policy / プライバシーポリシー
-    url: https://petaf000.github.io/PadPlay/privacy/
+    url: https://petaf.dev/privacy/
     about: How the PadPlay app handles information. / PadPlay アプリの情報の扱い。
